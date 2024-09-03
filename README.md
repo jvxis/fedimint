@@ -99,3 +99,9 @@ docker compose up -d
 docker logs fedimintd
 ```
 # Se não tem erro basta acessar o site com https://fedimint.seu-dominio.com
+
+## IMPORTANTE
+
+# Caso precise Reiniciar do ZERO
+Apague o diretorio fedimint-services antes de executar novamente o script
+
