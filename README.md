@@ -1,201 +1,101 @@
 # Implementação do Fedimintd e Lightning Gateway
 
-Este guia descreve os passos para implementar o Fedimintd e o Lightning Gateway em uma máquina que já possui o `bitcoind` e `lnd` rodando localmente.
+Este guia descreve os passos para implementar o Fedimintd e o Lightning Gateway em uma máquina que já possui o `bitcoind` e `lnd` rodando localmente ou remoto.
 
 ## Pré-requisitos
+Certificar que as portas 80, 443, 8173 e 8174 estão abertas.
+Ter um nome de dominio, seudominio.com apontando para a maquina onde será instalado Fedimint
+Ser possicel Executar o comando na conta ROOT. Use o comando `sudo su`
 
-- **bitcoind**: Bitcoin Core já instalado e rodando.
-- **lnd**: Lightning Network Daemon já instalado e rodando.
-- **Sistema Operacional**: Linux (Ubuntu recomendado).
-- **Git**: Para clonar repositórios.
-- **Rust e Cargo**: Para compilar o código-fonte, se necessário.
 
-## 1. Preparação do Ambiente
-
-### Instalar Dependências
-
-Certifique-se de que as seguintes dependências estão instaladas:
-
+## Script de Instalação
 ```bash
-sudo apt update
-sudo apt install git build-essential
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+bash <(curl -sSf https://raw.githubusercontent.com/fedimint/fedimint-docker/master/downloader.sh)
 ```
-
-Siga as instruções para completar a instalação do Rust.
-
-## 2. Instalar o Fedimintd
-
-### Clonar o Repositório do Fedimint
-
+# Durante a Instalação o Script fará perguntas sobre o seu ambiente, opte por `Bitcoind` e `Remoto`
+# Importante sempre que ele perguntar sobre o seu host, colocar o nome completo do dominio da maquina
+# Após a instalação, pare os serviços:
 ```bash
-git clone https://github.com/fedimint/fedimint.git
-cd fedimint
+docker compose down
 ```
-
-### Compilar o Fedimintd
-
+# Copie o arquivo .env para env_old
 ```bash
-cargo build --release
+cp .env env_old
 ```
-
-### Mover o Binário Compilado
-
+# Edite o arquivo docker-compose.yaml
 ```bash
-sudo mv target/release/fedimintd /usr/local/bin/
+nano docker-compose.yaml
 ```
-
-### Configurar o Fedimintd
-
-Crie um arquivo de configuração chamado `fedimint.conf`:
-
+# Faça as seguintes alterações:
 ```bash
-nano ~/fedimint.conf
+# See the .env file for config options
+services:
+  traefik:
+    image: "traefik:v2.10"
+    container_name: "traefik"
+    command:
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.myresolver.acme.tlschallenge=true"
+      - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
+    ports:
+      - "443:443"
+    volumes:
+      - "letsencrypt_data:/letsencrypt"
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+
+  fedimintd:
+    image: fedimint/fedimintd:v0.4.1
+    container_name: fedimintd
+    volumes:
+      - fedimintd_data:/data
+    ports:
+      - "0.0.0.0:8173:8173"
+    environment:
+      - FM_DEFAULT_BITCOIND_RPC_KIND=bitcoind
+      - FM_DEFAULT_BITCOIND_RPC_URL=http://rpc_user:rpc_test@bitcoin.friendspool.club:8085
+      - FM_BITCOIN_NETWORK=bitcoin
+      - FM_BIND_P2P=0.0.0.0:8173
+      - FM_P2P_URL=fedimint://fedimint.seu-dominio.com:8173
+      - FM_BIND_API=0.0.0.0:8174
+      - FM_API_URL=wss://fedimint.seu-dominio.com/ws/
+      - FM_REL_NOTES_ACK=0_4_xyz
+    restart: always
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.services.fedimintd.loadbalancer.server.port=8174"
+      - "traefik.http.routers.fedimintd.rule=Host(`fedimint.seu-dominio.com`) && Path(`/ws/`)"
+      - "traefik.http.routers.fedimintd.entrypoints=websecure"
+      - "traefik.http.routers.fedimintd.tls.certresolver=myresolver"
+
+  guardian-ui:
+    image: fedimintui/guardian-ui:0.4.2
+    container_name: guardian-ui
+    environment:
+      - PORT=80
+      - REACT_APP_FM_CONFIG_API=wss://fedimint.seu-dominio.com/ws/
+    depends_on:
+      - fedimintd
+    restart: always
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.services.guardian-ui.loadbalancer.server.port=80"
+      - "traefik.http.routers.guardian-ui.rule=Host(`fedimint.seu-dominio.com`)"
+      - "traefik.http.routers.guardian-ui.entrypoints=websecure"
+      - "traefik.http.routers.guardian-ui.tls.certresolver=myresolver"
+
+volumes:
+  letsencrypt_data:
+  fedimintd_data:
 ```
-
-Exemplo de configuração:
-
-```toml
-[general]
-network = "bitcoin"
-bitcoind_rpc = "http://localhost:8332"
-bitcoind_rpc_user = "seu_usuario"
-bitcoind_rpc_password = "sua_senha"
-
-[federation]
-members = ["node1_public_key", "node2_public_key", "node3_public_key"]
-threshold = 2
-```
-
-### Iniciar o Fedimintd
-
+# Salve CTRL+X - YES
+# Reinicie os Serviços
 ```bash
-fedimintd --config ~/fedimint.conf
+docker compose up -d
 ```
-
-## 3. Instalar o Lightning Gateway
-
-### Clonar o Repositório do Lightning Gateway
-
+# Verifique se tudo certo
 ```bash
-git clone https://github.com/lightning-gateway/lightning-gateway.git
-cd lightning-gateway
+docker logs fedimintd
 ```
-
-### Compilar o Lightning Gateway
-
-```bash
-cargo build --release
-```
-
-### Mover o Binário Compilado
-
-```bash
-sudo mv target/release/lightning-gateway /usr/local/bin/
-```
-
-### Configurar o Lightning Gateway
-
-Crie um arquivo de configuração chamado `gateway.conf`:
-
-```bash
-nano ~/gateway.conf
-```
-
-Exemplo de configuração:
-
-```toml
-[lightning]
-type = "lnd"
-host = "localhost"
-port = 10009
-macaroon_path = "/caminho/para/admin.macaroon"
-tls_cert_path = "/caminho/para/tls.cert"
-
-[fedimint]
-host = "localhost"
-port = 8080
-```
-
-### Iniciar o Lightning Gateway
-
-```bash
-lightning-gateway --config ~/gateway.conf
-```
-
-## 4. Automatizar a Inicialização (Opcional)
-
-### Criar um Serviço systemd para o Fedimintd
-
-```bash
-sudo nano /etc/systemd/system/fedimintd.service
-```
-
-Adicione o seguinte conteúdo:
-
-```ini
-[Unit]
-Description=Fedimintd
-After=network.target
-
-[Service]
-ExecStart=/usr/local/bin/fedimintd --config /home/seu_usuario/fedimint.conf
-User=seu_usuario
-Restart=always
-
-[Install]
-WantedBy=multi-user.target
-```
-
-Ativar e iniciar o serviço:
-
-```bash
-sudo systemctl enable fedimintd
-sudo systemctl start fedimintd
-```
-
-### Criar um Serviço systemd para o Lightning Gateway
-
-```bash
-sudo nano /etc/systemd/system/lightning-gateway.service
-```
-
-Adicione o seguinte conteúdo:
-
-```ini
-[Unit]
-Description=Lightning Gateway
-After=network.target
-
-[Service]
-ExecStart=/usr/local/bin/lightning-gateway --config /home/seu_usuario/gateway.conf
-User=seu_usuario
-Restart=always
-
-[Install]
-WantedBy=multi-user.target
-```
-
-Ativar e iniciar o serviço:
-
-```bash
-sudo systemctl enable lightning-gateway
-sudo systemctl start lightning-gateway
-```
-
-## 5. Testar a Integração
-
-Realize transações de teste entre o Fedimintd e a Lightning Network para garantir que tudo esteja configurado corretamente.
-
-## 6. Monitoramento e Logs
-
-Monitore os logs dos serviços para identificar e resolver possíveis problemas:
-
-```bash
-journalctl -u fedimintd -f
-journalctl -u lightning-gateway -f
-```
-
-## Considerações Finais
-
-Este guia fornece um passo a passo básico para implementar o Fedimintd e o Lightning Gateway. Ajuste as configurações conforme necessário para atender às suas necessidades específicas. Se encontrar problemas, consulte a documentação oficial ou a comunidade para suporte adicional.
+# Se não tem erro basta acessar o site com https://fedimint.seu-dominio.com
