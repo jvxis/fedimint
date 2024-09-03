@@ -99,7 +99,8 @@ Teste fedimintd
 ```bash
 docker logs fedimintd
 ```
-Não pode ter erro
+Não pode ter erro.
+
 Resultado Esperado:
 ```bash
 Starting fedimintd
