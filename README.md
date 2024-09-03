@@ -26,7 +26,7 @@ cp .env env_old
 ```bash
 nano docker-compose.yaml
 ```
-# Faça as seguintes alterações:
+# Copie na totalidade abaixo em cima do original e altere o nome do seu dominio, e as credenciais do bitcoin:
 ```bash
 # See the .env file for config options
 services:
