@@ -95,10 +95,33 @@ volumes:
 docker compose up -d
 ```
 # Verifique se tudo certo
+Teste fedimintd
 ```bash
 docker logs fedimintd
 ```
-# Se não tem erro basta acessar o site com https://fedimint.seu-dominio.com
+Não pode ter erro
+Resultado Esperado:
+```bash
+Starting fedimintd
+2024-09-03T14:10:35.531588Z  INFO fedimintd::fedimintd: Starting fedimintd (version: 0.4.1 version_hash: 45add3342c72bf3237256aa85d3120d3ceb0930c)
+2024-09-03T14:10:35.634712Z  INFO fm::consensus: Starting config gen
+2024-09-03T14:10:35.639441Z  INFO fm::net::peer::dkg: Created new config gen Api
+2024-09-03T14:10:35.639480Z  INFO fm::net::api: Starting api on ws://0.0.0.0:8174
+2024-09-03T14:10:35.639485Z  INFO fm::net::auth: Api available for public access
+```
+Teste Containers
+```bash
+docker ps
+```
+Resultado Esperado:
+```bash
+CONTAINER ID   IMAGE                          COMMAND                  CREATED       STATUS       PORTS                                           NAMES
+5cb8c86b431b   fedimintui/guardian-ui:0.4.2   "docker-entrypoint.s…"   5 hours ago   Up 5 hours                                                   guardian-ui
+bc8115f4f25e   traefik:v2.10                  "/entrypoint.sh --pr…"   5 hours ago   Up 5 hours   80/tcp, 0.0.0.0:443->443/tcp, :::443->443/tcp   traefik
+fadcac59392e   fedimint/fedimintd:v0.4.1      "/nix/store/gf8fi918…"   5 hours ago   Up 5 hours   0.0.0.0:8173->8173/tcp, 8174/tcp                fedimintd
+```
+
+# Se não tem erro basta acessar o site com https://fedimint.seu-dominio.com (As vezes melhor acessar com Janela Anônima)
 
 ## IMPORTANTE
 
