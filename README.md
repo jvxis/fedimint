@@ -3,7 +3,7 @@
 Este guia descreve os passos para implementar o Fedimintd e o Lightning Gateway em uma máquina que já possui o `bitcoind` e `lnd` rodando localmente ou remoto.
 
 ## Pré-requisitos (PRECISAM ESTAR PRONTOS ANTES DE RODAR O SCRIPT)
-Certificar que as portas 443, 8173 e 8174 estão abertas.
+Certificar que as portas 80, 443, 8173 e 8174 estão abertas.
 Ter um nome de dominio, seudominio.com apontando para a maquina onde será instalado Fedimint
 Executar o comando na conta ROOT. Use o comando `sudo su`
 
