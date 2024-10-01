@@ -54,7 +54,7 @@ services:
       - "0.0.0.0:8173:8173"
     environment:
       - FM_DEFAULT_BITCOIND_RPC_KIND=bitcoind
-      - FM_DEFAULT_BITCOIND_RPC_URL=http://rpc_user:rpc_pass@bitcoin.friendspool.club:8085
+      - FM_DEFAULT_BITCOIND_RPC_URL=http://rpc_user:rpc_pass@bitcoin.br-ln.com:8085
       - FM_BITCOIN_NETWORK=bitcoin
       - FM_BIND_P2P=0.0.0.0:8173
       - FM_P2P_URL=fedimint://fedimint.seu-dominio.com:8173
