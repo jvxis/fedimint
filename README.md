@@ -29,6 +29,7 @@ nano docker-compose.yaml
 # Copie na totalidade abaixo em cima do original e altere o nome do seu dominio, e as credenciais do bitcoin:
 ```bash
 # See the .env file for config options
+
 services:
   traefik:
     image: "traefik:v2.10"
@@ -44,48 +45,58 @@ services:
     volumes:
       - "letsencrypt_data:/letsencrypt"
       - "/var/run/docker.sock:/var/run/docker.sock:ro"
+    restart: unless-stopped
+    networks:
+      - fedimint_network
 
   fedimintd:
-    image: fedimint/fedimintd:v0.7.0
-    container_name: fedimintd
+    image: ${FEDIMINTD_IMAGE}
     volumes:
       - fedimintd_data:/data
     ports:
-      - "0.0.0.0:8173:8173"
+      - 8173:8173/tcp # p2p tls
+      - 8173:8173/udp # p2p iroh
+      - 8174:8174/udp # api iroh
+      - 127.0.0.1:8175:8175/tcp # ui
     environment:
-      - FM_DEFAULT_BITCOIND_RPC_KIND=bitcoind
-      - FM_DEFAULT_BITCOIND_RPC_URL=http://rpc_user:rpc_pass@bitcoin.br-ln.com:8085
+      - FM_BITCOIN_RPC_KIND=${FM_BITCOIN_RPC_KIND}
+      - FM_BITCOIN_RPC_URL=${FM_BITCOIN_RPC_URL}
       - FM_BITCOIN_NETWORK=bitcoin
       - FM_BIND_P2P=0.0.0.0:8173
-      - FM_P2P_URL=fedimint://fedimint.seu-dominio.com:8173
-      - FM_BIND_API=0.0.0.0:8174
-      - FM_API_URL=wss://fedimint.seu-dominio.com/ws/
+      - FM_P2P_URL=fedimint://${FM_DOMAIN}:8173
+      - FM_API_URL=wss://${FM_DOMAIN}/ws/
+      - FM_BIND_API_WS=172.20.0.11:8174
+      - FM_BIND_UI=172.20.0.11:8175
       - FM_REL_NOTES_ACK=0_4_xyz
     restart: always
     labels:
       - "traefik.enable=true"
-      - "traefik.http.services.fedimintd.loadbalancer.server.port=8174"
-      - "traefik.http.routers.fedimintd.rule=Host(`fedimint.seu-dominio.com`) && Path(`/ws/`)"
-      - "traefik.http.routers.fedimintd.entrypoints=websecure"
-      - "traefik.http.routers.fedimintd.tls.certresolver=myresolver"
+      # API Service
+      - "traefik.http.routers.fedimintd-api.rule=Host(`${FM_DOMAIN}`) && Path(`/ws/`)"
+      - "traefik.http.routers.fedimintd-api.entrypoints=websecure"
+      - "traefik.http.routers.fedimintd-api.tls.certresolver=myresolver"
+      - "traefik.http.routers.fedimintd-api.service=fedimintd-api"
+      - "traefik.http.services.fedimintd-api.loadbalancer.server.port=8174"
+      # UI Service
+      - "traefik.http.routers.fedimintd-ui.rule=Host(`${FM_DOMAIN}`)"
+      - "traefik.http.routers.fedimintd-ui.entrypoints=websecure"
+      - "traefik.http.routers.fedimintd-ui.tls.certresolver=myresolver"
+      - "traefik.http.routers.fedimintd-ui.service=fedimintd-ui"
+      - "traefik.http.services.fedimintd-ui.loadbalancer.server.port=8175"
+    networks:
+      fedimint_network:
+        ipv4_address: 172.20.0.11
 
-  guardian-ui:
-    image: fedimintui/guardian-ui:0.4.2
-    container_name: guardian-ui
-    environment:
-      - PORT=80
-      - REACT_APP_FM_CONFIG_API=wss://fedimint.seu-dominio.com/ws/
-    depends_on:
-      - fedimintd
-    restart: always
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.services.guardian-ui.loadbalancer.server.port=80"
-      - "traefik.http.routers.guardian-ui.rule=Host(`fedimint.seu-dominio.com`)"
-      - "traefik.http.routers.guardian-ui.entrypoints=websecure"
-      - "traefik.http.routers.guardian-ui.tls.certresolver=myresolver"
+networks:
+  fedimint_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+          gateway: 172.20.0.1
 
 volumes:
+  bitcoind_data:
   letsencrypt_data:
   fedimintd_data:
 ```
@@ -97,18 +108,20 @@ docker compose up -d
 # Verifique se tudo certo
 Teste fedimintd
 ```bash
-docker logs fedimintd
+docker logs fedimint-service-fedimintd-1
 ```
 Não pode ter erro.
 
 Resultado Esperado:
 ```bash
 Starting fedimintd
-2024-09-03T14:10:35.531588Z  INFO fedimintd::fedimintd: Starting fedimintd (version: 0.4.1 version_hash: 45add3342c72bf3237256aa85d3120d3ceb0930c)
-2024-09-03T14:10:35.634712Z  INFO fm::consensus: Starting config gen
-2024-09-03T14:10:35.639441Z  INFO fm::net::peer::dkg: Created new config gen Api
-2024-09-03T14:10:35.639480Z  INFO fm::net::api: Starting api on ws://0.0.0.0:8174
-2024-09-03T14:10:35.639485Z  INFO fm::net::auth: Api available for public access
+2025-05-05T12:39:32.206336Z  INFO fedimintd::fedimintd: Starting fedimintd (version: 0.7.0 version_hash: b983d25d4c3cce1751c54e3ad0230fc507e3aeec)
+2025-05-05T12:39:32.206484Z  WARN fm::core: FM_BITCOIN_RPC_KIND is obsolete, use FM_DEFAULT_BITCOIN_RPC_KIND instead
+2025-05-05T12:39:32.206496Z  WARN fm::core: FM_BITCOIN_RPC_URL is obsolete, use FM_DEFAULT_BITCOIN_RPC_URL instead
+2025-05-05T12:39:32.289114Z  INFO fm::consensus: Starting config gen
+2025-05-05T12:39:32.290131Z  INFO fm::net::api: Starting http api on ws://172.20.0.11:8174
+2025-05-05T12:39:32.290166Z  INFO fm::net::auth: Api available for public access
+2025-05-05T12:39:32.291648Z  INFO fm::consensus: Setup UI running at http://172.20.0.11:8175 🚀
 ```
 Teste Containers
 ```bash
@@ -116,13 +129,14 @@ docker ps
 ```
 Resultado Esperado:
 ```bash
-CONTAINER ID   IMAGE                          COMMAND                  CREATED       STATUS       PORTS                                           NAMES
-5cb8c86b431b   fedimintui/guardian-ui:0.4.2   "docker-entrypoint.s…"   5 hours ago   Up 5 hours                                                   guardian-ui
-bc8115f4f25e   traefik:v2.10                  "/entrypoint.sh --pr…"   5 hours ago   Up 5 hours   80/tcp, 0.0.0.0:443->443/tcp, :::443->443/tcp   traefik
-fadcac59392e   fedimint/fedimintd:v0.4.1      "/nix/store/gf8fi918…"   5 hours ago   Up 5 hours   0.0.0.0:8173->8173/tcp, 8174/tcp                fedimintd
+CONTAINER ID   IMAGE                       COMMAND                  CREATED          STATUS          PORTS                                                                                          NAMES
+a53920ac3da1   traefik:v2.10               "/entrypoint.sh --pr…"   12 seconds ago   Up 11 seconds   80/tcp, 0.0.0.0:443->443/tcp                                                                   traefik
+2613a8507146   fedimint/fedimintd:v0.7.0   "/nix/store/i2n2xcgj…"   12 seconds ago   Up 11 seconds   0.0.0.0:8173->8173/tcp, 0.0.0.0:8173-8174->8173-8174/udp, 8174/tcp, 127.0.0.1:8175->8175/tcp   fedimint-service-fedimintd-1
 ```
 
 # Se não tem erro basta acessar o site com https://fedimint.seu-dominio.com (As vezes melhor acessar com Janela Anônima)
+![image](https://github.com/user-attachments/assets/225cb7a5-2aa1-46ed-a580-58c1f83fa3f4)
+
 
 ## IMPORTANTE
 
