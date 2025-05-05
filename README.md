@@ -3,7 +3,7 @@
 Este guia descreve os passos para implementar o Fedimintd e o Lightning Gateway em uma máquina que já possui o `bitcoind` e `lnd` rodando localmente ou remoto.
 
 ## Pré-requisitos (PRECISAM ESTAR PRONTOS ANTES DE RODAR O SCRIPT)
-Certificar que as portas 80, 443, 8173 e 8174 estão abertas.
+Certificar que as portas 80, 443, 8173 e 8174 estão abertas. ** IMPORTANTE: Porta 8173 deve estar aberta para UDP também. **
 Ter um nome de dominio, seudominio.com apontando para a maquina onde será instalado Fedimint
 Executar o comando na conta ROOT. Use o comando `sudo su`
 
@@ -14,13 +14,38 @@ bash <(curl -sSf https://raw.githubusercontent.com/fedimint/fedimint-docker/mast
 ```
 # Durante a Instalação o Script fará perguntas sobre o seu ambiente, opte por `Bitcoind` e `Remoto`
 # Importante sempre que ele perguntar sobre o seu host, colocar o nome completo do dominio da maquina
-# Após a instalação, pare os serviços:
+# Após a instalação, vá para o diretório e pare os serviços:
 ```bash
+cd fedimint-service
 docker compose down
 ```
 # Copie o arquivo .env para env_old
 ```bash
 cp .env env_old
+```
+# Edite o arquivo .env e substitua integralmente pelo conteúdo abaixo, ajustando o nome de domínio e credenciais do Bitcoin
+```bash
+nano .env
+```
+```bash
+# Bitcoin auth information
+# generate with https://jlopp.github.io/bitcoin-core-rpc-auth-generator/,
+# default is user: bitcoin, pass: bitcoin
+#BITCOIND_RPC_AUTH=bitcoin:54ae356e13a76dc8068e960eb43193cb$$efeeb347a1f0b4a7b7832cc26e68861bc46f89126a8e136ff9932cad47739041
+
+# This domain should point to the machine fedimintd is being deployed to
+FM_DOMAIN=fedixx.br-ln.com
+
+# Where bitcoind is reachable
+FM_BITCOIN_RPC_KIND=bitcoind
+FM_BITCOIN_RPC_URL=http://rpc_user:rpc_pass@bitcoin.br-ln.com:8085
+
+# For testing or fallback one can also use esplora
+# FM_BITCOIN_RPC_KIND=esplora
+# FM_BITCOIN_RPC_URL=https://blockstream.info/api/
+
+# fedimintd image
+FEDIMINTD_IMAGE=fedimint/fedimintd:v0.7.0
 ```
 # Edite o arquivo docker-compose.yaml
 ```bash
