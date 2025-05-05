@@ -51,7 +51,7 @@ FEDIMINTD_IMAGE=fedimint/fedimintd:v0.7.0
 ```bash
 nano docker-compose.yaml
 ```
-# Copie na totalidade abaixo em cima do original e altere o nome do seu dominio, e as credenciais do bitcoin:
+# Copie na totalidade abaixo em cima do original, não altere nada:
 ```bash
 # See the .env file for config options
 
